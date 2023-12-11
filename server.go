@@ -61,8 +61,37 @@ func returnJson(w http.ResponseWriter, r *http.Request) {
 	//fmt.Fprintf(w, strings.ToUpper(word))
 }
 
+// Req: http://localhost:1234/return-struct-with-pointers
+//
+// Bash:
+// $ curl localhost:1234/return-struct-with-pointers | json_pp
+func returnStrucWithPointers(w http.ResponseWriter, r *http.Request) {
+
+	type internal struct {
+            SomeIntPointer    *int    `json:"SomeIntPointer,omitempty"`
+            SomeInt           int     `json:"SomeInt,omitempty"`
+            SomeStringPointer *string `json:"SomeStringPointer,omitempty"`
+            SommeString       string  `json:"SomeString,omitempty"`
+        }
+        zeroPointer := 1
+
+	_, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid request")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(internal{&zeroPointer, 0, nil, ""})
+	//fmt.Fprintf(w, strings.ToUpper(word))
+}
+
 func main() {
 	http.HandleFunc("/upper", upperCaseHandler)
 	http.HandleFunc("/return-json", returnJson)
+	http.HandleFunc("/return-struct-with-pointers", returnStrucWithPointers)
 	log.Fatal(http.ListenAndServe(":1234", nil))
 }
