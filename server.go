@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"compress/gzip"
 )
 
 // Req: http://localhost:1234/upper?word=abc
@@ -58,7 +59,6 @@ func returnJson(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(obj)
-	//fmt.Fprintf(w, strings.ToUpper(word))
 }
 
 // Req: http://localhost:1234/return-struct-with-pointers
@@ -86,12 +86,55 @@ func returnStrucWithPointers(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(internal{&zeroPointer, 0, nil, ""})
-	//fmt.Fprintf(w, strings.ToUpper(word))
+}
+
+// Req: http://localhost:1234/return-gzip
+//
+// Bash:
+// $ curl -i -H "Accepted-Enconding: gzip" http://localhost:1234/return-gzip | gunzip
+// or
+// $ curl -i --compressed http://localhost:1234/return-gzip
+func returnGzip(w http.ResponseWriter, r *http.Request) {
+
+	obj := []struct {
+		Description string `json:"description"`
+		Number      uint64 `json:"number"`
+	}{
+		{
+			Description: "I am a JSON",
+			Number:      12345,
+		},
+		{
+			Description: "I am another",
+			Number:      12346,
+		},
+	}
+
+	_, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "invalid request")
+		return
+	}
+
+	encodings := r.Header.Get("Accept-encoding")
+	fmt.Println("Accept-encoding", encodings, len(encodings))
+	fmt.Println("body", r.Body)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Encoding", "gzip")
+	w.WriteHeader(http.StatusOK)
+
+	gw := gzip.NewWriter(w)
+	defer gw.Close()
+
+	json.NewEncoder(gw).Encode(obj)
 }
 
 func main() {
 	http.HandleFunc("/upper", upperCaseHandler)
 	http.HandleFunc("/return-json", returnJson)
 	http.HandleFunc("/return-struct-with-pointers", returnStrucWithPointers)
+	http.HandleFunc("/return-gzip", returnGzip)
 	log.Fatal(http.ListenAndServe(":1234", nil))
 }
